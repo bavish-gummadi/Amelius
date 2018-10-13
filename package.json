@@ -5,10 +5,15 @@
   "dependencies": {
     "@material-ui/core": "^3.2.0",
     "face-plus-plus": "0.0.3",
+    "jquery": "^3.3.1",
     "react": "^16.5.2",
     "react-dom": "^16.5.2",
+    "react-dom-camera": "^0.3.2",
     "react-meta-tags": "^0.7.1",
-    "react-scripts": "2.0.4"
+    "react-scripts": "2.0.4",
+    "react-webcam": "^1.0.4",
+    "request": "^2.88.0",
+    "typeface-montserrat": "0.0.54"
   },
   "scripts": {
     "start": "react-scripts start",
