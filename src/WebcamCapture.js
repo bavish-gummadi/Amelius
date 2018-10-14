@@ -9,10 +9,10 @@ import SentimentSatisfiedAlt from '@material-ui/icons/SentimentSatisfiedAlt'
 import SentimentDissatisfied from '@material-ui/icons/SentimentDissatisfied'
 import Fade from '@material-ui/core/Fade';
 import Check from '@material-ui/icons/Check';
-import './WebcamCapture.css';
 import $ from 'jquery';
-import {XYPlot, XAxis, YAxis, HorizontalGridLines, LineSeries, VerticalGridLines} from 'react-vis';
 import firebase from './firebase.js';
+import {VictoryChart, VictoryLine, VictoryTheme} from 'victory';
+
 
 const styles = theme => ({
   buttonMain: {
@@ -22,6 +22,7 @@ const styles = theme => ({
     background: '#43b6ba',
     height: '-webkit-fill-available',
     borderRadius: '15px 15px 0px 0px',
+    overflow: 'scroll'
   },
   cardheader: {
     paddingTop: 70,
@@ -43,6 +44,16 @@ const styles = theme => ({
   },
   graph: {
     marginTop: 80,
+    fontSize: '2.0rem'
+  },
+  buttonsecondary: {
+    margin: 10,
+  },
+  nocam: {
+    opacity: 0,
+  },
+  chart: {
+    height: '-webkit-fill-available',
   }
 });
 
@@ -52,15 +63,15 @@ var data2 = {};
 
 var form1 = new FormData();
 var form2 = new FormData();
-form1.append("api_key", "8ixqIjxhFK2Fg_z8L-xmGRItPZxZNVa_");
-form1.append("api_secret", "q-lhBuleOsN3QKsNPI1Z7wA8uuIsQ0hN");
-form1.append("return_landmark", "1");
-form1.append("return_attributes", "gender,age");
+form1.set("api_key", "8ixqIjxhFK2Fg_z8L-xmGRItPZxZNVa_");
+form1.set("api_secret", "q-lhBuleOsN3QKsNPI1Z7wA8uuIsQ0hN");
+form1.set("return_landmark", "1");
+form1.set("return_attributes", "gender,age");
 
-form2.append("api_key", "8ixqIjxhFK2Fg_z8L-xmGRItPZxZNVa_");
-form2.append("api_secret", "q-lhBuleOsN3QKsNPI1Z7wA8uuIsQ0hN");
-form2.append("return_landmark", "1");
-form2.append("return_attributes", "gender,age");
+form2.set("api_key", "8ixqIjxhFK2Fg_z8L-xmGRItPZxZNVa_");
+form2.set("api_secret", "q-lhBuleOsN3QKsNPI1Z7wA8uuIsQ0hN");
+form2.set("return_landmark", "1");
+form2.set("return_attributes", "gender,age");
 class WebcamCapture extends Component {
   constructor() {
     super();
@@ -73,7 +84,7 @@ class WebcamCapture extends Component {
       midLipDifference: '',
       rightLipDifference: '',
       leftLipDifference: '',
-
+      cameraActive: false,
     }
   }
   componentWillUnmount() {
@@ -92,7 +103,7 @@ class WebcamCapture extends Component {
     },1000);
     this.timeout1 = setTimeout(() => {
       const imageSrc = this.webcam.getScreenshot();
-      form1.append("image_base64", imageSrc);
+      form1.set("image_base64", imageSrc);
       fetch("https://api-us.faceplusplus.com/facepp/v3/detect",
             {
                 method: "POST",
@@ -120,7 +131,7 @@ class WebcamCapture extends Component {
     },1000);
     this.timeout2 = setTimeout(() => {
       const imageSrc = this.webcam.getScreenshot();
-      form2.append("image_base64", imageSrc);
+      form2.set("image_base64", imageSrc);
       fetch("https://api-us.faceplusplus.com/facepp/v3/detect",
             {
                 method: "POST",
@@ -223,14 +234,106 @@ class WebcamCapture extends Component {
           var key = childSnapshot.key;
           // childData will be the actual contents of the child
           var childData = childSnapshot.val();
-          data.push({x: iterator, y: childData.leftLipDifference});
-          console.log(childData.leftLipDifference);
+          var sum = childData.leftLipDifference + childData.rightLipDifference + childData.leftBrowDifference + childData.rightBrowDifference + childData.midLipDifference;
+          data.push({x: iterator, y: sum});
           ++iterator;
         }
       });
 	  });
     return data;
   }
+  graphData1() {
+    var data = [];
+    var iterator = 0;
+    firebase.database().ref('patients/' + this.props.userId).on('value', (snapshot) => {
+      snapshot.forEach(function(childSnapshot) {
+        if(childSnapshot.key[0] == '-') {
+          var key = childSnapshot.key;
+          // childData will be the actual contents of the child
+          var childData = childSnapshot.val();
+          var sum = childData.leftLipDifference;
+          data.push({x: iterator, y: sum});
+          ++iterator;
+        }
+      });
+	  });
+    return data;
+  }
+  graphData2() {
+    var data = [];
+    var iterator = 0;
+    firebase.database().ref('patients/' + this.props.userId).on('value', (snapshot) => {
+      snapshot.forEach(function(childSnapshot) {
+        if(childSnapshot.key[0] == '-') {
+          var key = childSnapshot.key;
+          // childData will be the actual contents of the child
+          var childData = childSnapshot.val();
+          var sum = childData.rightLipDifference;
+          data.push({x: iterator, y: sum});
+          ++iterator;
+        }
+      });
+	  });
+    return data;
+  }
+  graphData3() {
+    var data = [];
+    var iterator = 0;
+    firebase.database().ref('patients/' + this.props.userId).on('value', (snapshot) => {
+      snapshot.forEach(function(childSnapshot) {
+        if(childSnapshot.key[0] == '-') {
+          var key = childSnapshot.key;
+          // childData will be the actual contents of the child
+          var childData = childSnapshot.val();
+          var sum = childData.midLipDifference;
+          data.push({x: iterator, y: sum});
+          ++iterator;
+        }
+      });
+	  });
+    return data;
+  }
+  graphData4() {
+    var data = [];
+    var iterator = 0;
+    firebase.database().ref('patients/' + this.props.userId).on('value', (snapshot) => {
+      snapshot.forEach(function(childSnapshot) {
+        if(childSnapshot.key[0] == '-') {
+          var key = childSnapshot.key;
+          // childData will be the actual contents of the child
+          var childData = childSnapshot.val();
+          var sum = childData.rightBrowDifference;
+          data.push({x: iterator, y: sum});
+          ++iterator;
+        }
+      });
+	  });
+    return data;
+  }
+  graphData5() {
+    var data = [];
+    var iterator = 0;
+    firebase.database().ref('patients/' + this.props.userId).on('value', (snapshot) => {
+      snapshot.forEach(function(childSnapshot) {
+        if(childSnapshot.key[0] == '-') {
+          var key = childSnapshot.key;
+          // childData will be the actual contents of the child
+          var childData = childSnapshot.val();
+          var sum = childData.leftBrowDifference;
+          data.push({x: iterator, y: sum});
+          ++iterator;
+        }
+      });
+	  });
+    return data;
+  }
+
+
+  reset = () => {
+    this.setState({pic1: false,
+                  pic2: false});
+  }
+
   render(props) {
     const { classes } = this.props;
     const videoConstraints = {
@@ -245,23 +348,86 @@ class WebcamCapture extends Component {
             <Fragment>
             {this.state.pic2 ? (
               <Fragment>
-                <Typography color="primary" className={classes.graph}>Hi, is a rundown of your progress</Typography>
-                <XYPlot
-                  width={300}
-                  height={300}
-                  color='white'>
-                  <LineSeries
-                    color="white"
-                    data={this.graphData()}/>
-                  <XAxis />
-                  <YAxis title='difference score' />
-                </XYPlot>
+                <Typography color="primary" className={classes.graph}>Hi, this is a summary of your progress</Typography>
+                <VictoryChart
+                  >
+                  <VictoryLine
+                    style={{
+                      data: { stroke: "#FFFFFF" },
+                      parent: { border: "1px solid #ccc"}
+                    }}
+                    data={this.graphData()}
+                  />
+                </VictoryChart>
+
+                <Typography color="primary" className={classes.graph}>Left Corner Lip Differential</Typography>
+                <VictoryChart
+                  >
+                  <VictoryLine
+                    style={{
+                      data: { stroke: "#FFFFFF" },
+                      parent: { border: "1px solid #ccc"}
+                    }}
+                    data={this.graphData1()}
+                  />
+                </VictoryChart>
+
+                <Typography color="primary" className={classes.graph}>Right Corner Lip Differential</Typography>
+                <VictoryChart
+                  >
+                  <VictoryLine
+                    style={{
+                      data: { stroke: "#FFFFFF" },
+                      parent: { border: "1px solid #ccc"}
+                    }}
+                    data={this.graphData2()}
+                  />
+                </VictoryChart>
+
+                <Typography color="primary" className={classes.graph}>Mid Lip Differential</Typography>
+                <VictoryChart
+                  >
+                  <VictoryLine
+                    style={{
+                      data: { stroke: "#FFFFFF" },
+                      parent: { border: "1px solid #ccc"}
+                    }}
+                    data={this.graphData3()}
+                  />
+                </VictoryChart>
+
+                <Typography color="primary" className={classes.graph}>Right Brow Differential</Typography>
+                <VictoryChart
+                  >
+                  <VictoryLine
+                    style={{
+                      data: { stroke: "#FFFFFF" },
+                      parent: { border: "1px solid #ccc"}
+                    }}
+                    data={this.graphData4()}
+                  />
+                </VictoryChart>
+
+                <Typography color="primary" className={classes.graph}>Left Brow Differential</Typography>
+                <VictoryChart
+                  >
+                  <VictoryLine
+                    style={{
+                      data: { stroke: "#FFFFFF" },
+                      parent: { border: "1px solid #ccc"}
+                    }}
+                    data={this.graphData5()}
+                  />
+                </VictoryChart>
+
+
+                <Button variant="contained" color="secondary" className={classes.buttonMain} onClick={this.reset}>Take Photos Again?</Button>
               </Fragment>
             ) : (
               <Fade in={this.state.pic1} timeout={700}>
                 <div>
                   <Typography color="primary" className={classes.cardheader}>Next, you can take another picture of yourself for further information</Typography>
-                  <Typography color="primary" className={classes.cardheader}>For the best data, please look at the camera directly and do not tilt your head</Typography>
+                  <Typography color="primary" className={classes.subheader}>For the best data, please look at the camera directly and do not tilt your head</Typography>
                   <div>
                     <Typography color="primary" className={classes.subheader}>Please maintain a straight face and tap the button above when you are ready to capture your data</Typography>
                     <SentimentDissatisfied color="primary" className={classes.icon}/>
@@ -281,16 +447,23 @@ class WebcamCapture extends Component {
           ) : (
             <Fragment>
               <Typography color="primary" className={classes.cardheader}>Hi, we're Amelius. We're here to help you track your progress. Please follow the instruections below</Typography>
-              <Typography color="primary" className={classes.cardheader}>For the best data, please look at the camera directly and do not tilt your head</Typography>
+              <Typography color="primary" className={classes.subheader}>For the best data, please look at the camera directly and do not tilt your head</Typography>
               <div>
                 <Typography color="primary" className={classes.subheader}>Please smile and raise your eyebrows and tap the button above when you are ready to capture your data</Typography>
                 <SentimentSatisfiedAlt color="primary" className={classes.icon}/>
               </div>
               {this.state.timer > 0 ? (
                 <Typography variant="h1" color="primary">{this.state.timer}</Typography>
-              ):
-              <Button variant="contained" color="primary" className={classes.buttonMain} onClick={this.capture1}>Capture Photo!</Button>
-              }
+              ): (
+                <Fragment>
+                <Button variant="contained" color="primary" className={classes.buttonMain} onClick={this.capture1}>Capture Photo!</Button>
+                <div>
+                <Button variant="contained" color="primary" className={classes.buttonsecondary} size='small' onClick={() => this.setState({pic2: true, pic1:true})}>View My Data</Button>
+                <Button variant="contained" color="primary" className={classes.buttonsecondary} size='small' onClick={() => this.setState({cameraActive: !this.state.cameraActive})}>View Camera</Button>
+                </div>
+                </Fragment>
+              )
+            }
             </Fragment>
           )}
           <p id="error"></p>
@@ -301,7 +474,7 @@ class WebcamCapture extends Component {
             screenshotFormat="image/jpeg"
             width={300}
             videoConstraints={videoConstraints}
-            className="webcam"
+            className={this.state.cameraActive ? classes.webcam : classes.nocam}
           />
         </Card>
       </div>

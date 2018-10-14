@@ -84,6 +84,7 @@ class Login extends Component {
     if(!this.emailAlreadyExists) {
       firebase.database().ref('patients').push(account).catch((error) => console.log(error));
       console.log(this.emailAlreadyExists);
+      document.getElementById('errormsg').innerHTML = "Successfully Created!";
     }
   }
   handleChange(e) {
@@ -127,6 +128,7 @@ class Login extends Component {
           </Card>
           </Slide>
         )}
+        <Typography>Amelius is a platform that enables individuals with facial paralysis to better asses their condition and improvement during treatment.</Typography>
       </div>
     )
   }
