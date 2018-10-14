@@ -11,6 +11,7 @@ import Fade from '@material-ui/core/Fade';
 import Check from '@material-ui/icons/Check';
 import './WebcamCapture.css';
 import $ from 'jquery';
+import {XYPlot, XAxis, YAxis, HorizontalGridLines, LineSeries, VerticalGridLines} from 'react-vis';
 import firebase from './firebase.js';
 
 const styles = theme => ({
@@ -36,13 +37,18 @@ const styles = theme => ({
 		fontSize: 250,
 		margin: theme.spacing.unit * 2,
 		marginTop: 250,
-	}
+	},
+  tester: {
+    marginTop: 70,
+  },
+  graph: {
+    marginTop: 80,
+  }
 });
 
 var data1 = {};
 var data2 = {};
 
-var processedData = {};
 
 var form1 = new FormData();
 var form2 = new FormData();
@@ -63,7 +69,11 @@ class WebcamCapture extends Component {
       pic2: false,
       timer: 0,
       isLoading: false,
-      retake: false
+      retake: false,
+      midLipDifference: '',
+      rightLipDifference: '',
+      leftLipDifference: '',
+
     }
   }
   componentWillUnmount() {
@@ -76,7 +86,6 @@ class WebcamCapture extends Component {
   capture1 = () => {
     this.setState({timer: 3});
     var timing = setInterval(() => {
-      console.log(this.state.timer);
       var time = this.state.timer;
       --time;
       this.setState({timer: time});
@@ -91,15 +100,13 @@ class WebcamCapture extends Component {
             })
             .then(dataWrappedByPromise => dataWrappedByPromise.json())
             .then(data => {
-              if(data.faces[0].landmark) {
-                data1 = data.faces[0].landmark;
-              } else {
-                this.setState({retake: true});
-                console.log("RETAKE");
-              }
+              data1 = data.faces[0].landmark;
+              this.setState({pic1: true});
             })
-            .catch(function(res){ console.log(res) });
-        this.setState({pic1: true});
+            .catch((error) => {
+                console.log(error);
+                this.setState({pic1: false});
+            });
         clearInterval(timing);
     }, 3000)
 
@@ -107,13 +114,11 @@ class WebcamCapture extends Component {
   capture2 = () => {
     this.setState({timer: 3});
     var timing = setInterval(() => {
-      console.log(this.state.timer);
       var time = this.state.timer;
       --time;
       this.setState({timer: time});
     },1000);
     this.timeout2 = setTimeout(() => {
-      this.setState({pic2: true});
       const imageSrc = this.webcam.getScreenshot();
       form2.append("image_base64", imageSrc);
       fetch("https://api-us.faceplusplus.com/facepp/v3/detect",
@@ -123,15 +128,13 @@ class WebcamCapture extends Component {
             })
             .then(dataWrappedByPromise => dataWrappedByPromise.json())
             .then(data => {
-              if(data.faces[0].landmark) {
-                data2 = data.faces[0].landmark;
-              } else {
-                this.setState({retake: true});
-                console.log("RETAKE");
-              }
+              data2 = data.faces[0].landmark;
               this.processData();
             })
-            .catch(function(res){ console.log(res) });
+            .catch((res) => {
+              console.log(res)
+              this.setState({pic2: false});
+            });
         clearInterval(timing);
     }, 3000)
   };
@@ -153,16 +156,17 @@ class WebcamCapture extends Component {
         x: ((data2.left_eye_bottom.x + data2.left_eye_top.x)/2.0),
         y: ((data2.left_eye_bottom.y + data2.left_eye_top.y)/2.0),
       }
-      var data1Distance = Math.pow(Math.pow(data1EyeLeft.x - data1EyeRight.x, 2) + Math.pow(data1EyeLeft.y - data1EyeRight.y, 2), 0.5);
-      var data2Distance = Math.pow(Math.pow(data2EyeLeft.x - data2EyeRight.x, 2) + Math.pow(data2EyeLeft.y - data2EyeRight.y, 2), 0.5);
+      var data1EyeDistance = Math.pow(Math.pow(data1EyeLeft.x - data1EyeRight.x, 2) + Math.pow(data1EyeLeft.y - data1EyeRight.y, 2), 0.5);
+      var data2EyeDistance = Math.pow(Math.pow(data2EyeLeft.x - data2EyeRight.x, 2) + Math.pow(data2EyeLeft.y - data2EyeRight.y, 2), 0.5);
       var fixing_ratio = data1Distance/data2Distance;
-
+      var data1Distance;
+      var data2Distance;
       //The following are the deltas we like to keep track of
 
       //Mid lip difference
       data1Distance = Math.pow(Math.pow(data1.mouth_upper_lip_top.x - data1.mouth_lower_lip_bottom.x, 2) + Math.pow(data1.mouth_upper_lip_top.y - data1.mouth_lower_lip_bottom.y, 2), 0.5);
       data2Distance = Math.pow(Math.pow(data2.mouth_upper_lip_top.x - data2.mouth_lower_lip_bottom.x, 2) + Math.pow(data2.mouth_upper_lip_top.y - data2.mouth_lower_lip_bottom.y, 2), 0.5);
-      var midLipDifference = data1Distance - (data2Distance * fixing_ratio);
+      var midLipDifference = Math.abs(100*(data1Distance/data1EyeDistance) - 100*(data2Distance/data2EyeDistance));
 
       //find midpoint of mouth
 
@@ -178,37 +182,56 @@ class WebcamCapture extends Component {
       //Now compare the deltas of the extreme right and left part of the lip with the midpoint
       data1Distance = Math.pow(Math.pow(data1.mouth_right_corner.x - data1CMouthMid.x, 2) + Math.pow(data1.mouth_right_corner.y - data1CMouthMid.y, 2), 0.5);
       data2Distance = Math.pow(Math.pow(data2.mouth_right_corner.x - data2NMouthMid.x, 2) + Math.pow(data2.mouth_right_corner.y - data2NMouthMid.y, 2), 0.5);
-      var rightLipDifference = data1Distance - (data2Distance * fixing_ratio);
+      var rightLipDifference = Math.abs(100*(data1Distance/data1EyeDistance) - 100*(data2Distance/data2EyeDistance));
 
       data1Distance = Math.pow(Math.pow(data1.mouth_left_corner.x - data1CMouthMid.x, 2) + Math.pow(data1.mouth_left_corner.y - data1CMouthMid.y, 2), 0.5);
       data2Distance = Math.pow(Math.pow(data2.mouth_left_corner.x - data2NMouthMid.x, 2) + Math.pow(data2.mouth_left_corner.y - data2NMouthMid.y, 2), 0.5);
-      var leftLipDifference = data1Distance - (data2Distance * fixing_ratio);
+      var leftLipDifference = Math.abs(100*(data1Distance/data1EyeDistance) - 100*(data2Distance/data2EyeDistance));
 
       //Now look at deltas in eyebrows with regards to eyes
       data1Distance = Math.pow(Math.pow(data1.right_eyebrow_upper_middle.x - data1EyeRight.x, 2) + Math.pow(data1.right_eyebrow_upper_middle.y - data1EyeRight.y, 2), 0.5);
       data2Distance = Math.pow(Math.pow(data2.right_eyebrow_upper_middle.x - data2EyeRight.x, 2) + Math.pow(data2.right_eyebrow_upper_middle.y - data2EyeRight.y, 2), 0.5);
-      var rightBrowDifference = data1Distance - (data2Distance * fixing_ratio);
+      var rightBrowDifference = Math.abs(100*(data1Distance/data1EyeDistance) - 100*(data2Distance/data2EyeDistance));
 
       data1Distance = Math.pow(Math.pow(data1.left_eyebrow_upper_middle.x - data1EyeLeft.x, 2) + Math.pow(data1.left_eyebrow_upper_middle.y - data1EyeLeft.y, 2), 0.5);
       data2Distance = Math.pow(Math.pow(data2.left_eyebrow_upper_middle.x - data2EyeLeft.x, 2) + Math.pow(data2.left_eyebrow_upper_middle.y - data2EyeLeft.y, 2), 0.5);
-      var leftBrowDifference = data1Distance - (data2Distance * fixing_ratio);
+      var leftBrowDifference = Math.abs(100*(data1Distance/data1EyeDistance) - 100*(data2Distance/data2EyeDistance));
 
-      processedData = {
+      this.state.processedData = {
         "midLipDifference": midLipDifference,
         "rightLipDifference": rightLipDifference,
         "leftLipDifference": leftLipDifference,
         "rightBrowDifference": rightBrowDifference,
         "leftBrowDifference": leftBrowDifference,
       }
-      const itemsRef = firebase.database().ref('patients');
-      itemsRef.push(processedData);
+      const itemsRef = firebase.database().ref('patients/' + this.props.userId );
+      itemsRef.push(this.state.processedData);
       this.setState({
         currentItem: '',
-        username: ''
+        username: '',
+        pic2: true
       });
-      console.log(processedData);
+      console.log(this.state.processedData);
+
   }
-  render() {
+  graphData() {
+    var data = [];
+    var iterator = 0;
+    firebase.database().ref('patients/' + this.props.userId).on('value', (snapshot) => {
+      snapshot.forEach(function(childSnapshot) {
+        if(childSnapshot.key[0] == '-') {
+          var key = childSnapshot.key;
+          // childData will be the actual contents of the child
+          var childData = childSnapshot.val();
+          data.push({x: iterator, y: childData.leftLipDifference});
+          console.log(childData.leftLipDifference);
+          ++iterator;
+        }
+      });
+	  });
+    return data;
+  }
+  render(props) {
     const { classes } = this.props;
     const videoConstraints = {
       width: 1280,
@@ -221,9 +244,19 @@ class WebcamCapture extends Component {
           {this.state.pic1 ? (
             <Fragment>
             {this.state.pic2 ? (
-              <Fade in={this.state.pic1} timeout={700}>
-                <Typography color='primary'>{data1.left_eye_bottom.x}</Typography>
-              </Fade>
+              <Fragment>
+                <Typography color="primary" className={classes.graph}>Hi, is a rundown of your progress</Typography>
+                <XYPlot
+                  width={300}
+                  height={300}
+                  color='white'>
+                  <LineSeries
+                    color="white"
+                    data={this.graphData()}/>
+                  <XAxis />
+                  <YAxis title='difference score' />
+                </XYPlot>
+              </Fragment>
             ) : (
               <Fade in={this.state.pic1} timeout={700}>
                 <div>
@@ -238,6 +271,7 @@ class WebcamCapture extends Component {
                   ):
                   <Button variant="contained" color="secondary" className={classes.buttonMain} onClick={this.capture2}>Capture Photo!</Button>
                   }
+                  <p id="error2"></p>
                 </div>
               </Fade>
             )
@@ -259,6 +293,7 @@ class WebcamCapture extends Component {
               }
             </Fragment>
           )}
+          <p id="error"></p>
           <Webcam
             audio={false}
             height={200}
