@@ -30,6 +30,9 @@ const styles = theme => ({
   },
   input: {
     backgroundColor: "#FFFFFF",
+  },
+  head: {
+    fontSize: "2.0rem",
   }
 });
 
@@ -52,7 +55,6 @@ class Login extends Component {
 	    let accounts = snapshot.val();
       console.log(accounts);
 	    for (let accounter in accounts) {
-        console.log(accounter);
 	    	if(this.state.email == accounts[accounter].email){
           if(this.state.password == accounts[accounter].password) {
             this.props.loginHandle(accounter);
@@ -96,6 +98,9 @@ class Login extends Component {
     const { classes } = this.props;
     return (
       <div>
+        <AppBar position="fixed" color="secondary" className={classes.header}>
+        <Typography color="primary" className={classes.head}>AMELIUS</Typography>
+        </AppBar>
         {this.state.signUp ? (
           <Slide in={this.state.signUp} direction="down">
           <Card className={classes.loginCard}>

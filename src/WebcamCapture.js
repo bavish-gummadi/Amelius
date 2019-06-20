@@ -9,14 +9,22 @@ import SentimentSatisfiedAlt from '@material-ui/icons/SentimentSatisfiedAlt'
 import SentimentDissatisfied from '@material-ui/icons/SentimentDissatisfied'
 import Fade from '@material-ui/core/Fade';
 import Check from '@material-ui/icons/Check';
+import Tabs from '@material-ui/core/Tabs';
+import Tab from '@material-ui/core/Tab';
+import { Link } from 'react-router-dom';
+import './WebcamCapture.css';
 import $ from 'jquery';
 import firebase from './firebase.js';
-import {VictoryChart, VictoryLine, VictoryTheme} from 'victory';
-
 
 const styles = theme => ({
   buttonMain: {
     marginTop: 50,
+  },
+  bottomNav: {
+    background: "#FFFFFF",
+    position: 'absolute',
+    bottom: 0,
+    width: '-webkit-fill-available'
   },
   mainCard: {
     background: '#43b6ba',
@@ -25,13 +33,13 @@ const styles = theme => ({
     overflow: 'scroll'
   },
   cardheader: {
-    paddingTop: 70,
+    paddingTop: 120,
   },
   subheader: {
     paddingTop: 25,
   },
   icon: {
-    fontSize: 45,
+    fontSize: 90,
   },
   check: {
 		color: '#FFFFFF',
@@ -81,10 +89,22 @@ class WebcamCapture extends Component {
       timer: 0,
       isLoading: false,
       retake: false,
-      midLipDifference: '',
-      rightLipDifference: '',
-      leftLipDifference: '',
-      cameraActive: false,
+      cameraActive: true,
+      processedData: {
+        "midLipDifference": 0,
+        "rightLipDifference": 0,
+        "leftLipDifference": 0,
+        "rightBrowDifference": 0,
+        "leftBrowDifference": 0,
+      },
+      improvement: {
+        "midLipImp": 0,
+        "leftLipImp": 0,
+        "rightLipImp": 0,
+        "leftBrowImp": 0,
+        "rightBrowImp": 0,
+        "totalImp": 0,
+      },
     }
   }
   componentWillUnmount() {
@@ -94,7 +114,71 @@ class WebcamCapture extends Component {
   setRef = webcam => {
     this.webcam = webcam;
   };
-  capture1 = () => {
+  finalProcess = () => {
+    const itemsRef = firebase.database().ref('patients/' + this.props.userId );
+    //Calculate previous bests and store
+    //MAX Lip difference
+    var MLD = 0;
+    //Max brow difference
+    var MBD = 0;
+    //Max mid lip difference
+    var MMD = 0;
+    itemsRef.on('value', (snapshot) => {
+      snapshot.forEach(function(childSnapshot) {
+        if(childSnapshot.key[0] == '-') {
+          var key = childSnapshot.key;
+          // childData will be the actual contents of the child
+          var childData = childSnapshot.val();
+          if(childData.leftLipDifference > MLD) {
+            MLD = childData.leftLipDifference;
+          }
+          if(childData.rightLipDifference > MLD) {
+            MLD = childData.rightLipDifference;
+          }
+          if(childData.leftBrowDifference > MBD) {
+            MBD = childData.leftBrowDifference;
+          }
+          if(childData.rightBrowDifference > MBD) {
+            MBD = childData.rightBrowDifference;
+          }
+          if(childData.midLipDifference > MMD) {
+            MMD = childData.midLipDifference;
+          }
+        }
+      });
+    });
+    var date = new Date();
+    var strDate = (date.getMonth() + 1) + "/" + date.getDate() + "/" + date.getFullYear();
+    this.setState({
+      processedData: {
+        "midLipDifference": this.state.processedData["midLipDifference"]/3,
+        "rightLipDifference": this.state.processedData["rightLipDifference"]/3,
+        "leftLipDifference": this.state.processedData["leftLipDifference"]/3,
+        "rightBrowDifference": this.state.processedData["rightBrowDifference"]/3,
+        "leftBrowDifference": this.state.processedData["leftBrowDifference"]/3,
+        "date": strDate,
+      }
+    })
+    itemsRef.push(this.state.processedData);
+    //Now calculate improvement for this specific
+    this.setState({
+      improvement: {
+        "midLipImp": this.state.processedData["midLipDifference"]/MMD,
+        "leftLipImp": this.state.processedData["leftLipDifference"]/MLD,
+        "rightLipImp": this.state.processedData["rightLipDifference"]/MLD,
+        "leftBrowImp": this.state.processedData["leftBrowDifference"]/MBD,
+        "rightBrowImp": this.state.processedData["rightBrowDifference"]/MBD,
+        "totalImp": this.state.processedData["midLipDifference"]+
+                    this.state.processedData["leftLipDifference"]+
+                    this.state.processedData["rightLipDifference"]+
+                    this.state.processedData["leftBrowDifference"]+
+                    this.state.processedData["rightBrowDifference"]/
+                    (MLD*2 + MBD*2 + MMD),
+      }
+    })
+    //DISPLAY SOME THANK YOU AND GO BACK TO GRAPHS
+  };
+  capture1 = (props) => {
     this.setState({timer: 3});
     var timing = setInterval(() => {
       var time = this.state.timer;
@@ -112,7 +196,7 @@ class WebcamCapture extends Component {
             .then(dataWrappedByPromise => dataWrappedByPromise.json())
             .then(data => {
               data1 = data.faces[0].landmark;
-              this.setState({pic1: true});
+              this.props.incrementStage();
             })
             .catch((error) => {
                 console.log(error);
@@ -122,7 +206,7 @@ class WebcamCapture extends Component {
     }, 3000)
 
   };
-  capture2 = () => {
+  capture2 = (props) => {
     this.setState({timer: 3});
     var timing = setInterval(() => {
       var time = this.state.timer;
@@ -140,7 +224,11 @@ class WebcamCapture extends Component {
             .then(dataWrappedByPromise => dataWrappedByPromise.json())
             .then(data => {
               data2 = data.faces[0].landmark;
+              this.props.incrementStage();
               this.processData();
+              if(this.props.stage == 6) {
+                this.finalProcess();
+              }
             })
             .catch((res) => {
               console.log(res)
@@ -149,6 +237,7 @@ class WebcamCapture extends Component {
         clearInterval(timing);
     }, 3000)
   };
+
   processData() {
       //ADMINISTER ALGORITHMS FROM RESEARCH PAPER
       var data1EyeLeft = {
@@ -207,131 +296,29 @@ class WebcamCapture extends Component {
       data1Distance = Math.pow(Math.pow(data1.left_eyebrow_upper_middle.x - data1EyeLeft.x, 2) + Math.pow(data1.left_eyebrow_upper_middle.y - data1EyeLeft.y, 2), 0.5);
       data2Distance = Math.pow(Math.pow(data2.left_eyebrow_upper_middle.x - data2EyeLeft.x, 2) + Math.pow(data2.left_eyebrow_upper_middle.y - data2EyeLeft.y, 2), 0.5);
       var leftBrowDifference = Math.abs(100*(data1Distance/data1EyeDistance) - 100*(data2Distance/data2EyeDistance));
-
-      this.state.processedData = {
-        "midLipDifference": midLipDifference,
-        "rightLipDifference": rightLipDifference,
-        "leftLipDifference": leftLipDifference,
-        "rightBrowDifference": rightBrowDifference,
-        "leftBrowDifference": leftBrowDifference,
-      }
-      const itemsRef = firebase.database().ref('patients/' + this.props.userId );
-      itemsRef.push(this.state.processedData);
+      //CHANGED TO SET STATE!!
+      this.setState({
+        processedData: {
+          "midLipDifference": midLipDifference + this.state.processedData["midLipDifference"],
+          "rightLipDifference": rightLipDifference + this.state.processedData["rightLipDifference"],
+          "leftLipDifference": leftLipDifference + this.state.processedData["leftLipDifference"],
+          "rightBrowDifference": rightBrowDifference + this.state.processedData["rightBrowDifference"],
+          "leftBrowDifference": leftBrowDifference + this.state.processedData["leftBrowDifference"],
+        }
+      })
       this.setState({
         currentItem: '',
         username: '',
         pic2: true
       });
-      console.log(this.state.processedData);
-
   }
-  graphData() {
-    var data = [];
-    var iterator = 0;
-    firebase.database().ref('patients/' + this.props.userId).on('value', (snapshot) => {
-      snapshot.forEach(function(childSnapshot) {
-        if(childSnapshot.key[0] == '-') {
-          var key = childSnapshot.key;
-          // childData will be the actual contents of the child
-          var childData = childSnapshot.val();
-          var sum = childData.leftLipDifference + childData.rightLipDifference + childData.leftBrowDifference + childData.rightBrowDifference + childData.midLipDifference;
-          data.push({x: iterator, y: sum});
-          ++iterator;
-        }
-      });
-	  });
-    return data;
-  }
-  graphData1() {
-    var data = [];
-    var iterator = 0;
-    firebase.database().ref('patients/' + this.props.userId).on('value', (snapshot) => {
-      snapshot.forEach(function(childSnapshot) {
-        if(childSnapshot.key[0] == '-') {
-          var key = childSnapshot.key;
-          // childData will be the actual contents of the child
-          var childData = childSnapshot.val();
-          var sum = childData.leftLipDifference;
-          data.push({x: iterator, y: sum});
-          ++iterator;
-        }
-      });
-	  });
-    return data;
-  }
-  graphData2() {
-    var data = [];
-    var iterator = 0;
-    firebase.database().ref('patients/' + this.props.userId).on('value', (snapshot) => {
-      snapshot.forEach(function(childSnapshot) {
-        if(childSnapshot.key[0] == '-') {
-          var key = childSnapshot.key;
-          // childData will be the actual contents of the child
-          var childData = childSnapshot.val();
-          var sum = childData.rightLipDifference;
-          data.push({x: iterator, y: sum});
-          ++iterator;
-        }
-      });
-	  });
-    return data;
-  }
-  graphData3() {
-    var data = [];
-    var iterator = 0;
-    firebase.database().ref('patients/' + this.props.userId).on('value', (snapshot) => {
-      snapshot.forEach(function(childSnapshot) {
-        if(childSnapshot.key[0] == '-') {
-          var key = childSnapshot.key;
-          // childData will be the actual contents of the child
-          var childData = childSnapshot.val();
-          var sum = childData.midLipDifference;
-          data.push({x: iterator, y: sum});
-          ++iterator;
-        }
-      });
-	  });
-    return data;
-  }
-  graphData4() {
-    var data = [];
-    var iterator = 0;
-    firebase.database().ref('patients/' + this.props.userId).on('value', (snapshot) => {
-      snapshot.forEach(function(childSnapshot) {
-        if(childSnapshot.key[0] == '-') {
-          var key = childSnapshot.key;
-          // childData will be the actual contents of the child
-          var childData = childSnapshot.val();
-          var sum = childData.rightBrowDifference;
-          data.push({x: iterator, y: sum});
-          ++iterator;
-        }
-      });
-	  });
-    return data;
-  }
-  graphData5() {
-    var data = [];
-    var iterator = 0;
-    firebase.database().ref('patients/' + this.props.userId).on('value', (snapshot) => {
-      snapshot.forEach(function(childSnapshot) {
-        if(childSnapshot.key[0] == '-') {
-          var key = childSnapshot.key;
-          // childData will be the actual contents of the child
-          var childData = childSnapshot.val();
-          var sum = childData.leftBrowDifference;
-          data.push({x: iterator, y: sum});
-          ++iterator;
-        }
-      });
-	  });
-    return data;
-  }
-
-
   reset = () => {
     this.setState({pic1: false,
                   pic2: false});
+  }
+  returnGraphs = () => {
+    this.props.resetStage();
+    this.props.imagingToggle();
   }
 
   render(props) {
@@ -344,93 +331,91 @@ class WebcamCapture extends Component {
     return (
       <div>
         <Card className={classes.mainCard}>
-          {this.state.pic1 ? (
+          {this.props.stage == 6 ? (
             <Fragment>
-            {this.state.pic2 ? (
+              <div className="totalImprovement">
+                <Typography color="primary" variant='headline'>{this.state.improvement["totalImp"].toFixed(1)}%</Typography>
+                <Typography color="primary" variant='subheading'>Total Improvement</Typography>
+              </div>
+              <div className="secondImprovement">
+                <Typography color="primary" variant='headline'>{this.state.improvement["leftLipImp"].toFixed(1)}%</Typography>
+                <Typography color="primary" variant='subheading'>Left Lip Improvement</Typography>
+              </div>
+              <div className="secondImprovement">
+                <Typography color="primary" variant='headline'>{this.state.improvement["rightLipImp"].toFixed(1)}%</Typography>
+                <Typography color="primary" variant='subheading'>Right Lip Improvement</Typography>
+              </div>
+              <div className="secondImprovement">
+                <Typography color="primary" variant='headline'>{this.state.improvement["midLipImp"].toFixed(1)}%</Typography>
+                <Typography color="primary" variant='subheading'>Mid Lip Improvement</Typography>
+              </div>
+              <div className="secondImprovement">
+                <Typography color="primary" variant='headline'>{this.state.improvement["leftBrowImp"].toFixed(1)}%</Typography>
+                <Typography color="primary" variant='subheading'>Left Brow Improvement</Typography>
+              </div>
+              <div className="secondImprovement">
+                <Typography color="primary" variant='headline'>{this.state.improvement["rightBrowImp"].toFixed(1)}%</Typography>
+                <Typography color="primary" variant='subheading'>Right Brow Improvement</Typography>
+              </div>
+            </Fragment>
+          ) : (
+            <Fragment>
+            {this.props.stage % 2 == 0 ? (
               <Fragment>
-                <Typography color="primary" className={classes.graph}>Hi, this is a summary of your progress</Typography>
-                <VictoryChart
-                  >
-                  <VictoryLine
-                    style={{
-                      data: { stroke: "#FFFFFF" },
-                      parent: { border: "1px solid #ccc"}
-                    }}
-                    data={this.graphData()}
-                  />
-                </VictoryChart>
-
-                <Typography color="primary" className={classes.graph}>Left Corner Lip Differential</Typography>
-                <VictoryChart
-                  >
-                  <VictoryLine
-                    style={{
-                      data: { stroke: "#FFFFFF" },
-                      parent: { border: "1px solid #ccc"}
-                    }}
-                    data={this.graphData1()}
-                  />
-                </VictoryChart>
-
-                <Typography color="primary" className={classes.graph}>Right Corner Lip Differential</Typography>
-                <VictoryChart
-                  >
-                  <VictoryLine
-                    style={{
-                      data: { stroke: "#FFFFFF" },
-                      parent: { border: "1px solid #ccc"}
-                    }}
-                    data={this.graphData2()}
-                  />
-                </VictoryChart>
-
-                <Typography color="primary" className={classes.graph}>Mid Lip Differential</Typography>
-                <VictoryChart
-                  >
-                  <VictoryLine
-                    style={{
-                      data: { stroke: "#FFFFFF" },
-                      parent: { border: "1px solid #ccc"}
-                    }}
-                    data={this.graphData3()}
-                  />
-                </VictoryChart>
-
-                <Typography color="primary" className={classes.graph}>Right Brow Differential</Typography>
-                <VictoryChart
-                  >
-                  <VictoryLine
-                    style={{
-                      data: { stroke: "#FFFFFF" },
-                      parent: { border: "1px solid #ccc"}
-                    }}
-                    data={this.graphData4()}
-                  />
-                </VictoryChart>
-
-                <Typography color="primary" className={classes.graph}>Left Brow Differential</Typography>
-                <VictoryChart
-                  >
-                  <VictoryLine
-                    style={{
-                      data: { stroke: "#FFFFFF" },
-                      parent: { border: "1px solid #ccc"}
-                    }}
-                    data={this.graphData5()}
-                  />
-                </VictoryChart>
-
-
-                <Button variant="contained" color="secondary" className={classes.buttonMain} onClick={this.reset}>Take Photos Again?</Button>
+                <Typography color="primary" className={classes.cardheader}>For the best data, please look at the camera directly and do not tilt your head</Typography>
+                <div>
+                  <Typography color="primary" className={classes.subheader}>Please smile and raise your eyebrows and tap the button above when you are ready to capture your data</Typography>
+                  {this.state.cameraActive ? (
+                    <Webcam
+                      audio={false}
+                      height={200}
+                      ref={this.setRef}
+                      screenshotFormat="image/jpeg"
+                      width={300}
+                      videoConstraints={videoConstraints}
+                      className={classes.webcam}/>
+                  ) : (
+                    <SentimentSatisfiedAlt color="primary" className={classes.icon}/>
+                  )}
+                </div>
+                {this.state.timer > 0 ? (
+                  <Typography variant="h1" color="primary">{this.state.timer}</Typography>
+                  ): (
+                  <Fragment>
+                  <Button variant="contained" color="primary" className={classes.buttonMain} onClick={this.capture1}>Capture Photo!</Button>
+                  </Fragment>
+                  )
+                }
+                <Webcam
+                  audio={false}
+                  height={200}
+                  ref={this.setRef}
+                  screenshotFormat="image/jpeg"
+                  width={300}
+                  videoConstraints={videoConstraints}
+                  className={classes.nocam}
+                />
               </Fragment>
             ) : (
-              <Fade in={this.state.pic1} timeout={700}>
+              <Fade in={true} timeout={700}>
                 <div>
                   <Typography color="primary" className={classes.cardheader}>Next, you can take another picture of yourself for further information</Typography>
                   <Typography color="primary" className={classes.subheader}>For the best data, please look at the camera directly and do not tilt your head</Typography>
                   <div>
                     <Typography color="primary" className={classes.subheader}>Please maintain a straight face and tap the button above when you are ready to capture your data</Typography>
-                    <SentimentDissatisfied color="primary" className={classes.icon}/>
+                    {this.state.cameraActive ? (
+                      <Webcam
+                        audio={false}
+                        height={200}
+                        ref={this.setRef}
+                        screenshotFormat="image/jpeg"
+                        width={300}
+                        videoConstraints={videoConstraints}
+                        className={classes.webcam}
+                      />
+                    ) : (
+                      <SentimentDissatisfied color="primary" className={classes.icon}/>
+                    )}
                   </div>
                   {this.state.timer > 0 ? (
                     <Typography variant="h1" color="primary">{this.state.timer}</Typography>
@@ -438,44 +423,39 @@ class WebcamCapture extends Component {
                   <Button variant="contained" color="secondary" className={classes.buttonMain} onClick={this.capture2}>Capture Photo!</Button>
                   }
                   <p id="error2"></p>
+                  <Webcam
+                    audio={false}
+                    height={200}
+                    ref={this.setRef}
+                    screenshotFormat="image/jpeg"
+                    width={300}
+                    videoConstraints={videoConstraints}
+                    className={classes.nocam}
+                  />
                 </div>
               </Fade>
-            )
-            }
-            </Fragment>
-
-          ) : (
-            <Fragment>
-              <Typography color="primary" className={classes.cardheader}>Hi, we're Amelius. We're here to help you track your progress. Please follow the instruections below</Typography>
-              <Typography color="primary" className={classes.subheader}>For the best data, please look at the camera directly and do not tilt your head</Typography>
-              <div>
-                <Typography color="primary" className={classes.subheader}>Please smile and raise your eyebrows and tap the button above when you are ready to capture your data</Typography>
-                <SentimentSatisfiedAlt color="primary" className={classes.icon}/>
-              </div>
-              {this.state.timer > 0 ? (
-                <Typography variant="h1" color="primary">{this.state.timer}</Typography>
-              ): (
-                <Fragment>
-                <Button variant="contained" color="primary" className={classes.buttonMain} onClick={this.capture1}>Capture Photo!</Button>
-                <div>
-                <Button variant="contained" color="primary" className={classes.buttonsecondary} size='small' onClick={() => this.setState({pic2: true, pic1:true})}>View My Data</Button>
-                <Button variant="contained" color="primary" className={classes.buttonsecondary} size='small' onClick={() => this.setState({cameraActive: !this.state.cameraActive})}>View Camera</Button>
-                </div>
-                </Fragment>
-              )
-            }
+            )}
             </Fragment>
           )}
+
           <p id="error"></p>
-          <Webcam
-            audio={false}
-            height={200}
-            ref={this.setRef}
-            screenshotFormat="image/jpeg"
-            width={300}
-            videoConstraints={videoConstraints}
-            className={this.state.cameraActive ? classes.webcam : classes.nocam}
-          />
+          <Tabs
+            indicatorColor="secondary"
+            textColor="secondary"
+            fullWidth
+            className={classes.bottomNav}
+            >
+            <Tab
+              label='Return to Data'
+              component={Link}
+              to="/graphsHome"
+              onClick={this.returnGraphs}
+            />
+            <Tab
+              label='Toggle Camera'
+              onClick={() => this.setState({cameraActive: !this.state.cameraActive})}
+            />
+          </Tabs>
         </Card>
       </div>
     )

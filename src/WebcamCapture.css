@@ -10,3 +10,15 @@ svg#sky {
   border:1px dotted #ccc;
   background-color: #ccc;
 }
+.totalImprovement {
+  margin-top: 100px;
+  display: flex;
+	justify-content: space-around;
+	align-items: baseline;
+}
+.secondImprovement {
+  margin-top: 50px;
+  display: flex;
+	justify-content: space-around;
+	align-items: baseline;
+}
