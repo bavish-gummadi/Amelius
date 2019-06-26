@@ -27,6 +27,8 @@ class GraphsHome extends Component {
     var maxRLD = 0;
     var maxLBD = 0;
     var maxRBD = 0;
+    var maxRND = 0;
+    var maxLND = 0;
     var maxMLD = 0;
     firebase.database().ref('patients/' + props.userId).on('value', (snapshot) => {
       snapshot.forEach(function(childSnapshot) {
@@ -46,6 +48,12 @@ class GraphsHome extends Component {
           if(childData.rightBrowDifference > maxRBD) {
             maxRBD = childData.rightBrowDifference;
           }
+          if(childData.leftNoseDifference > maxLND) {
+            maxLND = childData.leftNoseDifference;
+          }
+          if(childData.rightNoseDifference > maxRND) {
+            maxRND = childData.rightNoseDifference;
+          }
           if(childData.midLipDifference > maxMLD) {
             maxMLD = childData.midLipDifference;
           }
@@ -57,6 +65,8 @@ class GraphsHome extends Component {
       maxRLD: Math.max(maxLLD, maxRLD),
       maxLBD: Math.max(maxLBD, maxRBD),
       maxRBD: Math.max(maxLBD, maxRBD),
+      maxRND: Math.max(maxLND, maxRND),
+      maxLND: Math.max(maxLND, maxRND),
       maxMLD: maxMLD,
     }
 
@@ -164,6 +174,40 @@ class GraphsHome extends Component {
     });
     return data;
   }
+  graphData6() {
+    var data = [];
+    var iterator = 0;
+    firebase.database().ref('patients/' + this.props.userId).on('value', (snapshot) => {
+      snapshot.forEach((childSnapshot) => {
+        if(childSnapshot.key[0] == '-') {
+          var key = childSnapshot.key;
+          // childData will be the actual contents of the child
+          var childData = childSnapshot.val();
+          var sum = (childData.leftNoseDifference/(this.state.maxRBD)) * 100;
+          data.push({x: iterator, y: sum});
+          ++iterator;
+        }
+      });
+    });
+    return data;
+  }
+  graphData7() {
+    var data = [];
+    var iterator = 0;
+    firebase.database().ref('patients/' + this.props.userId).on('value', (snapshot) => {
+      snapshot.forEach((childSnapshot) => {
+        if(childSnapshot.key[0] == '-') {
+          var key = childSnapshot.key;
+          // childData will be the actual contents of the child
+          var childData = childSnapshot.val();
+          var sum = (childData.rightNoseDifference/(this.state.maxRBD)) * 100;
+          data.push({x: iterator, y: sum});
+          ++iterator;
+        }
+      });
+    });
+    return data;
+  }
 
   render() {
     const { classes } = this.props;
@@ -238,6 +282,30 @@ class GraphsHome extends Component {
               parent: { border: "1px solid #ccc"}
             }}
             data={this.graphData5()}
+          />
+        </VictoryChart>
+
+        <Typography color="secondary" className={classes.graph}>Right Nose Differential</Typography>
+        <VictoryChart
+          >
+          <VictoryLine
+            style={{
+              data: { stroke: "#000000" },
+              parent: { border: "1px solid #ccc"}
+            }}
+            data={this.graphData6()}
+          />
+        </VictoryChart>
+
+        <Typography color="secondary" className={classes.graph}>Left Nose Differential</Typography>
+        <VictoryChart
+          >
+          <VictoryLine
+            style={{
+              data: { stroke: "#000000" },
+              parent: { border: "1px solid #ccc"}
+            }}
+            data={this.graphData7()}
           />
         </VictoryChart>
       </div>
