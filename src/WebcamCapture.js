@@ -121,7 +121,7 @@ class WebcamCapture extends Component {
     this.webcam = webcam;
   };
   finalProcess = () => {
-    const itemsRef = firebase.database().ref('patients/' + this.props.userId );
+    const itemsRef = firebase.database().ref('patients/' + this.props.userId);
     //Calculate previous bests and store
     //MAX Lip difference
     var MLD = 0;

@@ -134,6 +134,8 @@ class Login extends Component {
           </Slide>
         )}
         <Typography>Amelius is a platform that enables individuals with facial paralysis to better asses their condition and improvement during treatment.</Typography>
+        <Typography>Demo email: gummadib@umich.edu</Typography>
+        <Typography>Demo password: Testing1</Typography>
       </div>
     )
   }
